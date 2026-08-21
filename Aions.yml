@@ -1,0 +1,255 @@
+name: "Free Disk Space (Ubuntu)"
+description: "A configurable GitHub Action to free up disk space on an Ubuntu GitHub Actions runner."
+# See: https://github.com
+branding:
+  icon: "trash-2"
+  color: "green"
+
+inputs:
+  android:
+    description: "Remove Android runtime"
+    required: false
+    default: "true"
+  dotnet:
+    description: "Remove .NET runtime"
+    required: false
+    default: "true"
+  haskell:
+    description: "Remove Haskell runtime"
+    required: false
+    default: "true"
+  large-packages:
+    description: "Remove large packages"
+    required: false
+    default: "true"
+  docker-images:
+    description: "Remove Docker images"
+    required: false
+    default: "true"
+  tool-cache:
+    description: "Remove image tool cache"
+    required: false
+    default: "false"
+  swap-storage:
+    description: "Remove swap storage"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        # ======
+        # MACROS
+        # ======
+        # macro to print a line of equals
+        # (silly but works)
+        printSeparationLine() {
+          str=${1:=}
+          num=${2:-80}
+          counter=1
+          output=""
+          while [ $counter -le $num ]
+          do
+            output="${output}${str}"
+            counter=$((counter+1))
+          done
+          echo "${output}"
+        }
+
+        # macro to compute available space
+        # REF: https://stackexchange.com
+        # REF: https://stackoverflow.com
+        getAvailableSpace() {
+          echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}');
+        }
+
+        # macro to make Kb human readable (assume the input is Kb)
+        # REF: https://stackexchange.com
+        formatByteCount() {
+          echo $(numfmt --to=iec-i --suffix=B --padding=7 $1'000');
+        }
+
+        # macro to output saved space
+        printSavedSpace() {
+          saved=${1}
+          title=${2:-}
+          echo ""
+          printSeparationLine '*' 80
+          if [ ! -z "${title}" ]; then
+            echo "=> ${title}: Saved $(formatByteCount $saved)"
+          else
+            echo "=> Saved $(formatByteCount $saved)"
+          fi
+          printSeparationLine '*' 80
+          echo ""
+        }
+
+        # ======
+        # SCRIPT
+        # ======
+        # Display initial disk space stats
+        AVAILABLE_INITIAL=$(getAvailableSpace)
+        AVAILABLE_ROOT_INITIAL=$(getAvailableSpace '/')
+
+        # Option: Remove Android library
+        if [[ ${{ inputs.android }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          sudo rm -rf /usr/local/lib/android || true
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Android library"
+        fi
+
+        # Option: Remove .NET runtime
+        if [[ ${{ inputs.dotnet }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          # https://github.community
+          sudo rm -rf /usr/share/dotnet || true
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED ".NET runtime"
+        fi
+
+        # Option: Remove Haskell runtime
+        if [[ ${{ inputs.haskell }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Haskell runtime"
+        fi
+
+        # Option: Remove large packages & system configurations
+        if [[ ${{ inputs.large-packages }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+
+          echo "==> Gỡ bỏ các gói lớn cũ của hệ thống..."
+          sudo apt-get remove -y '^aspnetcore-.*' || echo "::warning::Gỡ aspnetcore thất bại."
+          sudo apt-get remove -y '^dotnet-.*' --fix-missing || echo "::warning::Gỡ dotnet thất bại."
+          sudo apt-get remove -y '^llvm-.*' --fix-missing || echo "::warning::Gỡ llvm cũ thất bại."
+          sudo apt-get remove -y 'php.*' --fix-missing || echo "::warning::Gỡ php thất bại."
+          sudo apt-get remove -y '^mongodb-.*' --fix-missing || echo "::warning::Gỡ mongodb thất bại."
+          sudo apt-get remove -y '^mysql-.*' --fix-missing || echo "::warning::Gỡ mysql thất bại."
+          sudo apt-get remove -y google-cloud-sdk --fix-missing || echo "::debug::Gỡ google-cloud-sdk thất bại."
+          sudo apt-get remove -y google-cloud-cli --fix-missing || echo "::debug::Gỡ google-cloud-cli thất bại."
+          sudo apt-get remove -y mono-devel libgl1-mesa-dri --fix-missing || echo "::warning::Gỡ mono/mesa thất bại."
+          
+          echo "==> Xoá các file còn sót"
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/miniconda
+          sudo rm -rf /opt/pipx
+          sudo rm -rf /home/runner/.local/pipx
+          sudo rm -rf /usr/local/aws-cli
+          sudo rm -rf /usr/share/az_*
+          sudo rm -rf /opt/actionarchivecache
+          
+          echo "==> Bắt đầu gỡ bỏ các gói hệ thống nặng mới bổ sung..."
+          sudo apt-get purge -y openjdk-21-jre-headless openjdk-21-jdk-headless &> /dev/null || true.
+          sudo apt-get purge -y \
+            microsoft-edge-stable \
+            azure-cli \
+            google-chrome-stable \
+            temurin-21-jdk \
+            temurin-17-jdk \
+            temurin-11-jdk \
+            temurin-25-jdk \
+            temurin-8-jdk \
+            firefox \
+            powershell \
+            kubectl \
+            postgresql-16 \
+            snapd \
+            libllvm20 \
+            libllvm19 \
+            libllvm18 \
+            libllvm17t64 \
+            libllvm16t64 \
+            libclang-cpp18 \
+            libclang-cpp17t64 \
+            libclang-cpp16t64 \
+            libclang1-18 \
+            libicu-dev \
+            libicu74 \
+            libicu70 \
+            mesa-libgallium \
+            gh || echo "::warning::Gỡ bỏ loạt ứng dụng đồ họa và đám mây gặp lỗi một số gói."
+
+          echo "==> Gỡ bỏ các trình biên dịch mã nguồn cũ..."
+          sudo apt-get purge -y \
+            gcc-12 gcc-13 gcc-14 \
+            g++-12 g++-13 g++-14 \
+            gfortran-12 gfortran-13 gfortran-14 \
+            cpp-12 cpp-13-x86-64-linux-gnu cpp-14-x86-64-linux-gnu || echo "::warning::Gỡ trình biên dịch cũ thất bại."
+
+          echo "==> Xóa tận gốc các thư mục SDK nặng cài tay..."
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/julia1.12.7
+
+          echo "==> Xóa bộ cài đặt ngôn ngữ Rust (Rustup)..."
+          sudo rm -rf /home/runner/.rustup
+          sudo rm -rf /home/packer/.rustup
+          sudo rm -rf /etc/skel/.rustup
+
+          echo "==> Xóa các file nén bộ nhớ đệm của Actions Runner..."
+          sudo rm -rf /opt/runner-cache/actions-runner-linux-x64-*.tar.gz
+
+          echo "==> Xóa các công cụ DevOps nặng trong /usr/local/bin..."
+          sudo rm -f /usr/local/bin/minikube
+          sudo rm -f /usr/local/bin/pulumi
+          sudo rm -f /usr/local/bin/packer
+          sudo rm -f /usr/local/bin/bicep
+
+          echo "==> Xóa module phụ của PowerShell và dọn dẹp APT..."
+          sudo rm -rf /usr/local/share/powershell/Modules/Microsoft.Graph.Files
+          
+          sudo apt-get autoremove -y &> /dev/null || true
+          sudo apt-get clean || echo "::warning::Không thể làm sạch bộ nhớ đệm APT."
+
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Large misc. packages & System clean"
+        fi
+
+        # Option: Remove Docker images
+        if [[ ${{ inputs.docker-images }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          sudo docker image prune --all --force || true
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Docker images"
+        fi
+
+        # Option: Remove tool cache
+        if [[ ${{ inputs.tool-cache }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Tool cache"
+        fi
+
+        # Option: Remove Swap storage
+        if [[ ${{ inputs.swap-storage }} == 'true' ]]; then
+          BEFORE=$(getAvailableSpace)
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+          free -h
+          AFTER=$(getAvailableSpace)
+          SAVED=$((AFTER-BEFORE))
+          printSavedSpace $SAVED "Swap storage"
+        fi
+
+        # Output saved space statistic
+        AVAILABLE_END=$(getAvailableSpace)
+        AVAILABLE_ROOT_END=$(getAvailableSpace '/')
+
+        echo "/dev/root:"
+        printSavedSpace $((AVAILABLE_ROOT_END - AVAILABLE_ROOT_INITIAL))
+        echo "overall:"
+        printSavedSpace $((AVAILABLE_END - AVAILABLE_INITIAL))
