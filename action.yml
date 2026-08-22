@@ -147,11 +147,14 @@ runs:
           sudo rm -rf /usr/local/aws-cli
           sudo rm -rf /usr/share/az_*
           sudo rm -rf /opt/actionarchivecache
-          sudo dpkg --purge $(dpkg -l | grep '^rc' | awk '{print $2}')
+          sudo rm -rf /home/linuxbrew/.linuxbrew &
+          sudo rm -rf /usr/local/share/vcpkg &
+          sudo rm -rf /home/runner/actions-runner/cached &
+          sudo rm -rf /opt/runner-cache/externals &
+          wait
 
-          
           echo "==> Bắt đầu gỡ bỏ các gói hệ thống nặng mới bổ sung..."
-          sudo apt-get purge -y openjdk-21-jre-headless openjdk-21-jdk-headless &> /dev/null || true.
+          sudo apt-get purge -y openjdk-21-jre-headless openjdk-21-jdk-headless &> /dev/null || true
           sudo apt-get purge -y \
             microsoft-edge-stable \
             azure-cli \
