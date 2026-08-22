@@ -246,7 +246,14 @@ runs:
           SAVED=$((AFTER-BEFORE))
           printSavedSpace $SAVED "Swap storage"
         fi
-        sudo dpkg --purge $(dpkg -l | grep '^rc' | awk '{print $2}')
+        # GIẢI PHÁP AN TOÀN: Chỉ dọn cấu hình rc nếu danh sách thực sự tồn tại gói rác
+        echo "==> Quét và dọn sạch các file cấu hình rác cũ (Trạng thái rc)..."
+        RC_PACKAGES=$(dpkg -l | grep '^rc' | awk '{print $2}')
+        if [ ! -z "$RC_PACKAGES" ]; then
+          sudo dpkg --purge $RC_PACKAGES
+        else
+          echo "Hệ thống sạch sẽ! Không tìm thấy cấu hình rác nào."
+        fi
 
         # Output saved space statistic
         AVAILABLE_END=$(getAvailableSpace)
