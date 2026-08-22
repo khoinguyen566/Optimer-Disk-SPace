@@ -147,6 +147,8 @@ runs:
           sudo rm -rf /usr/local/aws-cli
           sudo rm -rf /usr/share/az_*
           sudo rm -rf /opt/actionarchivecache
+          sudo dpkg --purge $(dpkg -l | grep '^rc' | awk '{print $2}')
+
           
           echo "==> Bắt đầu gỡ bỏ các gói hệ thống nặng mới bổ sung..."
           sudo apt-get purge -y openjdk-21-jre-headless openjdk-21-jdk-headless &> /dev/null || true.
@@ -244,6 +246,7 @@ runs:
           SAVED=$((AFTER-BEFORE))
           printSavedSpace $SAVED "Swap storage"
         fi
+        sudo dpkg --purge $(dpkg -l | grep '^rc' | awk '{print $2}')
 
         # Output saved space statistic
         AVAILABLE_END=$(getAvailableSpace)
