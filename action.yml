@@ -147,10 +147,10 @@ runs:
           sudo rm -rf /usr/local/aws-cli
           sudo rm -rf /usr/share/az_*
           sudo rm -rf /opt/actionarchivecache
-          sudo rm -rf /home/linuxbrew/.linuxbrew &
-          sudo rm -rf /usr/local/share/vcpkg &
-          sudo rm -rf /home/runner/actions-runner/cached &
-          sudo rm -rf /opt/runner-cache/externals &
+          sudo rm -rf /home/linuxbrew/.linuxbrew
+          sudo rm -rf /usr/local/share/vcpkg
+          sudo rm -rf /home/runner/actions-runner/cached
+          sudo rm -rf /opt/runner-cache/externals
 
           echo "==> Bắt đầu gỡ bỏ các gói hệ thống nặng mới bổ sung..."
           sudo apt-get purge -y openjdk-21-jre-headless openjdk-21-jdk-headless || true.
